@@ -3,25 +3,27 @@
 namespace App\Console\Commands;
 
 use App\User;
+use Illuminate\Auth\EloquentUserProvider;
+use Illuminate\Auth\SessionGuard;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Validator;
 
-class Register extends Command
+class Login extends Command
 {
     /**
      * The name and signature of the console command.
      *
      * @var string
      */
-    protected $signature = 'octave:register {name}';
+    protected $signature = 'octave:login {name}';
 
     /**
      * The console command description.
      *
      * @var string
      */
-    protected $description = 'Helps to create an OctaveWallet account';
+    protected $description = 'Helps to login to an OctaveWallet account';
 
     /**
      * Create a new command instance.
@@ -41,16 +43,14 @@ class Register extends Command
     public function handle()
     {
         $name = $this->argument('name');
-        $email = $this->ask('Please let us now on which email address we can contact you');
-        $password = $this->secret('Please protect your account with a password');
-        $passwordConfirmation = $this->secret('Please confirm your password');
+        $email = $this->ask('Please enter your account\'s email address:');
+        $password = $this->secret('Please enter your password:');
 
         try {
             $userData = [
                 'name' => $name,
                 'email' => $email,
                 'password' => $password,
-                'password_confirmation' => $passwordConfirmation
             ];
 
             $validator = $this->validator($userData);
@@ -61,21 +61,28 @@ class Register extends Command
                 throw new \Exception('There was a problem!');
             }
 
-            app('db')->beginTransaction();
+            $guard = new SessionGuard(
+                'test',
+                new EloquentUserProvider(app('hash'), User::class),
+                app('session.store')
+            );
 
-            $user = $this->create($userData);
+            $validUser = $guard->once($userData);
+            if (!$validUser) {
+                throw new \Exception('We cannot retrieve your account.');
+            }
 
-            $this->info("Created new userData for email {$email}");
+            $this->info("We retrieved your account!");
 
-            app('db')->commit();
-
-            return $user->getKey();
+            return $guard->id();
         } catch (\Exception $e) {
             $this->error($e->getMessage());
 
-            $this->error('The userData was not created!');
+            $this->error('We cannot log you in. Please try again.');
 
-            app('db')->rollBack();
+            $userKey = $this->call('octave:login', [
+                'name' => $name,
+            ]);
         }
         return 0;
     }
@@ -89,24 +96,8 @@ class Register extends Command
     protected function validator(array $data)
     {
         return Validator::make($data, [
-            'name' => ['required', 'min:3', 'max:50'],
-            'email' => ['required', 'email', 'unique:users,email'],
-            'password' => ['required', 'string', 'min:8', 'confirmed'],
-        ]);
-    }
-
-    /**
-     * Create a new user instance after a valid registration.
-     *
-     * @param  array  $data
-     * @return \App\User
-     */
-    protected function create(array $data)
-    {
-        return User::create([
-            'name' => $data['name'],
-            'email' => $data['email'],
-            'password' => Hash::make($data['password']),
+            'email' => 'required|string',
+            'password' => 'required|string',
         ]);
     }
 }
