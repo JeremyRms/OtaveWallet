@@ -54,7 +54,7 @@ class Octave extends Command
         $hasAccount = $this->confirm('Do you have an account?');
 
         if (!$hasAccount) {
-            $this->call('octave:create-account', [
+            $this->call('octave:register', [
                 'name' => $name,
             ]);
         }
