@@ -50,6 +50,34 @@ class Octave extends Command
     {
         $this->info('Welcome to Octave Wallet!');
 
+        //////////////////////////////
+        try {
+            $user = User::findOrFail(5);
+            $user->createOrGetStripeCustomer();
+            $stripe = new \Stripe\StripeClient(
+                'sk_test_ZFlQBeF9Kx3di1HtuX2DuX4s'
+            );
+            $creditCard = $stripe->paymentMethods->create([
+                'type' => 'card',
+                'card' => [
+                    'number' => '4242424242424242',
+                    'exp_month' => 7,
+                    'exp_year' => 2021,
+                    'cvc' => '314',
+                ],
+            ]);
+            $user->addPaymentMethod($creditCard);
+            $user->updateDefaultPaymentMethod($creditCard);
+
+            $response = $user->charge(200, $creditCard->id);
+
+            dd($response);
+        } catch (\Exception $exception) {
+            $this->error($exception->getMessage());
+        }
+
+        //////////////////////////////
+
         $name = $this->choice(
             'What is your name?',
             ['Manish', 'Jeremy', 'Ying', 'Octave', 'Godzilla'],
@@ -94,7 +122,7 @@ class Octave extends Command
     {
         return $this->choice(
             'What service are you looking for?',
-            ['Transactions', 'exit'],
+            ['Transactions', 'Deposit', 'Auto-refill', 'exit'],
             0,
             $maxAttempts = 2,
             $allowMultipleSelections = false

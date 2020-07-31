@@ -7,11 +7,16 @@ use Bavix\Wallet\Traits\HasWallet;
 use Bavix\Wallet\Traits\HasWallets;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Laravel\Cashier\Billable;
 
+/**
+ * @method static User findOrFail(int $int)
+ */
 class User extends Authenticatable implements Wallet
 {
     use Notifiable;
     use HasWallet, HasWallets;
+    use Billable;
 
     /**
      * The attributes that are mass assignable.
