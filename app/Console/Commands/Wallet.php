@@ -52,6 +52,12 @@ class Wallet extends Command
                 throw new \Exception('Sorry mate, you already have a wallet.');
             }
 
+            $wallet = $user->createWallet([
+                'name' => 'Default',
+                'slug' => 'default-wallet',
+            ]);
+
+            $this->info('Your wallet is ready!');
 
 
 

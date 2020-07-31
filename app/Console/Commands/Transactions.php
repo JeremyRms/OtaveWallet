@@ -48,9 +48,6 @@ class Transactions extends Command
 
         try {
             $user = User::findOrFail($userKey);
-            if (!$user->hasWallet('my-wallet')) {
-                throw new \Exception('Sorry mate, you need to create a wallet first.');
-            }
 
             /** @var MorphMany $transactions */
             $transactions = $user->transactions();
