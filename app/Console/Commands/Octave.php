@@ -77,22 +77,15 @@ class Octave extends Command
 //        var_dump($user->balance);
         /** @var MorphMany $transactions */
         $transactions = $user->transactions();
-        $collection = $transactions->get();
+        $collection = $transactions->get(['id', 'type', 'amount', 'confirmed', 'meta', 'created_at']);
         $arrayCollection = $collection->map(function (Transaction $transaction) {
-            /** @var Carbon $updatedAt */
-            $updatedAt = $transaction->getAttribute('created_at');
-            $W3CDate = $updatedAt->ceilMinute()->toCookieString();
-            $transactionCollection = new Collection($transaction->toArray());
-            $transactionCollection->forget([
-                'payable_type',
-                'payable_id',
-                'wallet_id',
-                'uuid',
-                'updated_at'
-            ]);
-            $transactionCollection['meta'] = (new Collection($transactionCollection['meta']))->toJson();
-            $transactionCollection['created_at'] = $W3CDate;
-            return $transactionCollection->all();
+            /** @var Carbon $createdAt */
+            $createdAt = $transaction->getAttribute('created_at');
+            $W3CDate = $createdAt->ceilMinute()->toCookieString();
+            $transactionArray = $transaction->toArray();
+            $transactionArray['meta'] = (new Collection($transactionArray['meta']))->toJson();
+            $transactionArray['created_at'] = $W3CDate;
+            return $transactionArray;
         });
 
         $this->table(
@@ -136,6 +129,8 @@ class Octave extends Command
                 'name' => $name,
             ]);
         }
+
+        $hasAccount = $this->confirm('Do you want to display your 5 last transactions?');
 
 
         return 0;
