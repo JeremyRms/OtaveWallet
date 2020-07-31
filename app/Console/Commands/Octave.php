@@ -50,64 +50,6 @@ class Octave extends Command
     {
         $this->info('Welcome to Octave Wallet!');
 
-
-        ///////////
-        $userData = [
-            'name' => 'Jeremy',
-            'email' => 'jeremy@gmail.com',
-            'password' => 'testtest',
-        ];
-
-        $guard = new SessionGuard(
-            'test',
-            new EloquentUserProvider(app('hash'), User::class),
-            app('session.store')
-        );
-
-        $validUser = $guard->once($userData);
-        $user = $guard->user();
-//        $user->hasWallet('my-wallet');
-//        $wallet = $user->createWallet([
-//            'name' => 'New Wallet',
-//            'slug' => 'my-wallet',
-//        ]);
-//        $user->deposit(10000);
-//        $user->withdraw(1);
-//        $user->forceWithdraw(200, ['description' => 'payment of taxes']);
-//        var_dump($user->balance);
-        /** @var MorphMany $transactions */
-        $transactions = $user->transactions();
-        $collection = $transactions->get(['id', 'type', 'amount', 'confirmed', 'meta', 'created_at']);
-        $arrayCollection = $collection->map(function (Transaction $transaction) {
-            /** @var Carbon $createdAt */
-            $createdAt = $transaction->getAttribute('created_at');
-            $W3CDate = $createdAt->ceilMinute()->toCookieString();
-            $transactionArray = $transaction->toArray();
-            $transactionArray['meta'] = (new Collection($transactionArray['meta']))->toJson();
-            $transactionArray['created_at'] = $W3CDate;
-            return $transactionArray;
-        });
-
-        $this->table(
-            [
-                'id',
-                'type',
-                'amount',
-                'confirmed',
-                'addendum',
-                'created_at',
-            ],
-            $arrayCollection->toArray()
-        );
-
-
-
-
-        exit;
-
-
-        /// ///////////////
-
         $name = $this->choice(
             'What is your name?',
             ['Manish', 'Jeremy', 'Ying', 'Octave', 'Godzilla'],
@@ -130,9 +72,32 @@ class Octave extends Command
             ]);
         }
 
-        $hasAccount = $this->confirm('Do you want to display your 5 last transactions?');
+        if ($userKey === 0) return 1;
 
+        $service = $this->serviceChoice();
+
+        while ($service != 'exit') {
+            $userKey = $this->call('octave:transactions', [
+                'user-key' => $userKey,
+            ]);
+
+            $service = $this->serviceChoice();
+        }
 
         return 0;
+    }
+
+    /**
+     * @return array|string
+     */
+    public function serviceChoice()
+    {
+        return $this->choice(
+            'What service are you looking for?',
+            ['Transactions', 'exit'],
+            0,
+            $maxAttempts = 2,
+            $allowMultipleSelections = false
+        );
     }
 }

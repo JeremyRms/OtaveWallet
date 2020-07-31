@@ -43,8 +43,8 @@ class Login extends Command
     public function handle()
     {
         $name = $this->argument('name');
-        $email = $this->ask('Please enter your account\'s email address:');
-        $password = $this->secret('Please enter your password:');
+        $email = $this->ask('Please enter your account\'s email address');
+        $password = $this->secret('Please enter your password');
 
         try {
             $userData = [
@@ -79,10 +79,6 @@ class Login extends Command
             $this->error($e->getMessage());
 
             $this->error('We cannot log you in. Please try again.');
-
-            $userKey = $this->call('octave:login', [
-                'name' => $name,
-            ]);
         }
         return 0;
     }
