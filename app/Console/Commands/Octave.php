@@ -4,16 +4,9 @@ namespace App\Console\Commands;
 
 use App\User;
 use App\UserWithWallet;
-use Bavix\Wallet\Models\Transaction;
-use Illuminate\Auth\EloquentUserProvider;
-use Illuminate\Auth\SessionGuard;
+use Dompdf\Exception;
 use Illuminate\Console\Command;
-use Bavix\Wallet\Traits\HasWallet;
-use Bavix\Wallet\Interfaces\Wallet;
-use Illuminate\Database\Eloquent\Relations\MorphMany;
-use Illuminate\Support\Carbon;
-use Illuminate\Support\Collection;
-use function MongoDB\BSON\toJSON;
+use Stripe\Charge;
 
 class Octave extends Command
 {
@@ -52,26 +45,76 @@ class Octave extends Command
 
         //////////////////////////////
         try {
-            $user = User::findOrFail(5);
+            $user = User::findOrFail(1);
             $user->createOrGetStripeCustomer();
             $stripe = new \Stripe\StripeClient(
                 'sk_test_ZFlQBeF9Kx3di1HtuX2DuX4s'
             );
+//            $amount = $this->ask('What amount do you want to transfer to your wallet? (USD)');
+//            $cardNumber = $this->choice('What is your card number?', ['4242424242424242']);
+//            $cardExpirationMonth = $this->choice('What is the card expiration month?', ['7']);
+//            $cardExpirationYear = $this->choice('What is the card expiration year?', ['2021']);
+//            $cardCVC = $this->choice('What is the card CVC?', ['314']);
+
+            $amount = 10;
+            $amount *= 100; // in cents
+            $cardNumber = '4242424242424242';
+            $cardExpirationMonth = '7';
+            $cardExpirationYear = '2021';
+            $cardCVC = '314';
+
             $creditCard = $stripe->paymentMethods->create([
                 'type' => 'card',
                 'card' => [
-                    'number' => '4242424242424242',
-                    'exp_month' => 7,
-                    'exp_year' => 2021,
-                    'cvc' => '314',
+                    'number' => $cardNumber,
+                    'exp_month' => $cardExpirationMonth,
+                    'exp_year' => $cardExpirationYear,
+                    'cvc' => $cardCVC,
                 ],
             ]);
+
+            // User payment methods
             $user->addPaymentMethod($creditCard);
             $user->updateDefaultPaymentMethod($creditCard);
 
-            $response = $user->charge(200, $creditCard->id);
-
-            dd($response);
+            $payment = $user->charge($amount, $creditCard->id);
+            $paymentIntent = $payment->asStripePaymentIntent();
+            /** @var Charge $charge */
+            // it's a one off payment, so only 1 charge element data
+            $charge = $paymentIntent->charges->data[0];
+            if (!$charge instanceof Charge) {
+                throw new Exception('Invalid Charge data!');
+            }
+            $receiptUrl = $charge->receipt_url;
+            $chargeStatus = $charge->status;
+//            $balanceTransaction = $charge->balance_transaction;
+//            $transactionId = $balanceTransaction->id;
+//            $transaction = $stripe->balanceTransactions->retrieve($transactionId);
+//            $transactionStatus = $transaction->status;
+            $this->info('Payment status: '. $chargeStatus);
+            $this->info('Payment receipt: '. $receiptUrl);
+//            $applicationFeeAmount = $charge->application_fee_amount;
+//            $applicationFee = $charge->application_fee;
+//            $this->info('Fee: '. $applicationFee);
+//            $this->info('Fee amount: '. $applicationFeeAmount);
+            if ($payment->isSucceeded()) {
+                // TODO: use a currency library to check the decimals. Here we are in USD, so x100
+                $user->deposit(
+                    $amount,
+                    [
+                        'paymentProvider' => 'Stripe',
+                        'type' => $paymentIntent->payment_method,
+                        'currency' => $paymentIntent->currency,
+                        'amount' => $paymentIntent->amount/100,
+                    ]
+                );
+            }
+            $userKey = $this->call('octave:transactions', [
+                'user-key' => $user->getKey(),
+            ]);
+            $this->info('Your new balance is: '. $user->balance);
+            dd();
+            return $userKey;
         } catch (\Exception $exception) {
             $this->error($exception->getMessage());
         }
@@ -122,7 +165,7 @@ class Octave extends Command
     {
         return $this->choice(
             'What service are you looking for?',
-            ['Transactions', 'Deposit', 'Auto-refill', 'exit'],
+            ['Transactions', 'Add money to your wallet', 'Auto-refill', 'exit'],
             0,
             $maxAttempts = 2,
             $allowMultipleSelections = false

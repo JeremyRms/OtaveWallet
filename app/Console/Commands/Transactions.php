@@ -49,7 +49,6 @@ class Transactions extends Command
         try {
             $user = User::findOrFail($userKey);
 
-            /** @var MorphMany $transactions */
             $transactions = $user->transactions();
             $collection = $transactions->get(['id', 'type', 'amount', 'confirmed', 'meta', 'created_at']);
             $arrayCollection = $collection->map(function (Transaction $transaction) {
@@ -59,6 +58,8 @@ class Transactions extends Command
                 $transactionArray = $transaction->toArray();
                 $transactionArray['meta'] = (new Collection($transactionArray['meta']))->toJson();
                 $transactionArray['created_at'] = $W3CDate;
+                $transactionArray['confirmed'] = (bool) $transactionArray['confirmed'];
+                $transactionArray['amount'] = '$'.$transactionArray['amount'] / 100; // USD
                 return $transactionArray;
             });
 

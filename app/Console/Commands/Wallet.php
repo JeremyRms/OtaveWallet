@@ -59,8 +59,6 @@ class Wallet extends Command
 
             $this->info('Your wallet is ready!');
 
-
-
             return $userKey;
         } catch (\Exception $e) {
             $this->error($e->getMessage());
